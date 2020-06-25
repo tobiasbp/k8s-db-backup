@@ -1,0 +1,12 @@
+backup_01:
+  source:
+    type: mysql
+    host: 127.0.0.1
+    port: 32768
+    user: root
+    password: 123456
+    databases: [mysql]
+  destination:
+    type: s3
+    key1: foo
+    key2: bar
