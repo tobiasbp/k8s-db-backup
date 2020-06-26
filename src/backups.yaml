@@ -1,12 +1,29 @@
-backup_01:
-  source:
-    type: mysql
-    host: 127.0.0.1
-    port: 32768
-    user: root
-    password: 123456
-    databases: [mysql]
-  destination:
-    type: s3
-    key1: foo
-    key2: bar
+rootdir: my_database_backups
+timeout: 600
+backups:
+  backup_01:
+    source:
+      type: mysql
+      host: db1.example.com
+      user: read_only_user
+      password: 123456
+      databases: [mysql]
+    destination:
+      type: s3
+      access_key_id: my_access_key_id
+      bucket: my_bucket
+      endpoint: my_endpoint
+      secret_access_key: my_secret_access_key
+  backup_02:
+    source:
+      type: mysql
+      host: db2.example.com
+      user: read_only_user
+      password: 654321
+      databases: [sys]
+    destination:
+      type: s3
+      access_key_id: my_other_access_key_id
+      bucket: my_other_bucket
+      endpoint: my_other_endpoint
+      secret_access_key: my_other_secret_access_key

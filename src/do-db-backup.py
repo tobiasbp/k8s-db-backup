@@ -1,20 +1,31 @@
 #!/usr/bin/env python3
 
+import argparse
 import logging
 import os
 import subprocess
 
 from datetime import datetime
 
-#import tempfile
-#import gzip
-
-
 import yaml
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+#import tempfile
 
+# Configure logging
+logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', level=logging.INFO)
+
+parser = argparse.ArgumentParser(description='Database backups')
+
+parser.add_argument(
+    '--config',
+    required=False,
+    help=('Configuration file'),
+    default='/etc/backups.yaml'
+    )
+
+args = parser.parse_args()
+
+'''
 # Sources definition
 sources = {
   'mysql': {
@@ -39,25 +50,32 @@ destinations = {
     'path': None
     }
   }
+'''
 
 
-# Dir to store backups
+
+# Load configuration file
+stream = open(args.config, 'r')
+config = yaml.safe_load(stream)
+
+# Dir to store local temporary backups
 BACKUP_DIR = '/tmp'
 
-# Default timeout when dumping database
-DUMP_TIMEOUT = 60
+try:
+  # Default timeout when dumping database
+  DUMP_TIMEOUT = config['timeout']
 
-# This is dir on the remote where backups will be stored
-TOP_DIR = 'backups'
+  # This is dir on the remote where backups will be stored
+  TOP_DIR = config['rootdir']
+except KeyError as e:
+  logging.error("Missing key %s in config", e)
+  exit(1)
 
-# Load configuration of backups
-stream = open('./backups.yaml', 'r')
-backups = yaml.safe_load(stream)
 
 # FIXME: Define valid configs as dicts
 
 
-for b_name, b_conf in backups.items():
+for b_name, b_conf in config['backups'].items():
   logging.debug("%s: Processing backup entry", b_name)
   
 
@@ -74,7 +92,7 @@ for b_name, b_conf in backups.items():
       'mysqldump',
       '--host=' + s['host'],
       # Default port if not defined
-      '--port=' + str(s.get('port', sources[s['type']]['port'])),
+      '--port=' + str(s.get('port', 3306)),
       '--user=' + str(s['user']),
       '--password=' + str(s['password']),
       '--databases'
@@ -160,7 +178,7 @@ for b_name, b_conf in backups.items():
         # FIXME: these could have / in them check
         # FIXME: Use path library
         s3_path = "s3:/{}/{}/{}/{}/{}/".format(
-          d['bucket'],
+          d.get('bucket', os.getenv('S3_BUCKET')),
           TOP_DIR,
           b_name,
           b_datetime.year,
