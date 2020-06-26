@@ -27,6 +27,7 @@ parser.add_argument(
     help=('Log file')
     )
 
+# Parse the command line arguments
 args = parser.parse_args()
 
 # A list of logging handlers
@@ -41,12 +42,6 @@ if args.log_file:
 logging_handlers.append(logging.StreamHandler())
 
 
-# Configure logging
-logging.basicConfig(
-  format='%(asctime)s:%(levelname)s:%(message)s',
-  level=logging.INFO,
-  handlers=logging_handlers
-  )
 
 '''
 # Sources definition
@@ -80,6 +75,13 @@ destinations = {
 # Load configuration file
 stream = open(args.config, 'r')
 config = yaml.safe_load(stream)
+
+# Configure logging
+logging.basicConfig(
+  format='%(asctime)s:%(levelname)s:%(message)s',
+  level=eval("logging.{}".format(config.get('loglevel', "INFO").upper())),
+  handlers=logging_handlers
+  )
 
 # Dir to store local temporary backups
 BACKUP_DIR = '/tmp'
