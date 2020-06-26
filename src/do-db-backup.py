@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import os
 import subprocess
 
@@ -10,6 +11,9 @@ from datetime import datetime
 
 
 import yaml
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Sources definition
 sources = {
@@ -25,10 +29,10 @@ sources = {
 
 destinations = {
   's3': {
-    'access_key_id': os.getenv('S3_ACCESS_KEY_ID'),
-    'bucket': os.getenv('S3_BUCKET'),
-    'endpoint': os.getenv('S3_ENDPOINT'),
-    'secret_access_key': os.getenv('S3_SECRET_ACCESS_KEY'),
+    'access_key_id': None,
+    'bucket': None,
+    'endpoint': None,
+    'secret_access_key': None,
     #'region': None
     },
   'local': {
@@ -54,7 +58,7 @@ backups = yaml.safe_load(stream)
 
 
 for b_name, b_conf in backups.items():
-  #print("Processing backup entry {}".format(b_name))
+  logging.debug("%s: Processing backup entry", b_name)
   
 
   # FIXME: Validate config
@@ -79,8 +83,7 @@ for b_name, b_conf in backups.items():
     dbs = s['databases']
 
   except KeyError as e:
-    print("{}: Skipping because of missing key '{}' in source config"
-      .format(b_name, e))
+    logging.error("%s: Skipping because of missing key '%s' in source config", b_name, e)
     continue
 
   # Run through databases to back up
@@ -122,7 +125,8 @@ for b_name, b_conf in backups.items():
       # FIXME: Are these not killed automatically on timeout? Only the one which crashed. What about the other?
       p_comp.kill()
       p_dump.kill()
-      print("{}".format(e))
+      logging.error("%s: %s", b_name, e)
+
       continue
     finally:
       # Close backup file
@@ -130,11 +134,11 @@ for b_name, b_conf in backups.items():
       
 
     if p_dump.returncode != 0 or p_comp.returncode != 0:
-      print("{}: Could not dump database {} from host {}".format(b_name, db, b_conf['source'].get('host')))
+      logging.error("%s: Could not dump database '%s' from host '%s'", b_name, db, s.get('host'))
       print(dump_stderr)
       print(comp_stderr)
     else:
-      print("Dumped database '{}' from host '{}' to local file '{}'".format(db, b_conf['source'].get('host'), file_name))  
+      logging.debug("%s: Dumped database '%s' from host '%s' to local file '%s'", b_name, db, s.get('host'), file_name)  
 
 
     ###################
@@ -143,7 +147,7 @@ for b_name, b_conf in backups.items():
     if d['type'] == 's3':
       
       try:
-        print(d)
+        #print(d)
         # Args to pass to rclone. Get env variables for values not supplied in config.
         rc_args = [
           'rclone',
@@ -165,8 +169,7 @@ for b_name, b_conf in backups.items():
 
         #print(s3_path)
       except KeyError as e:
-        print("Skipping '{}' because of missing key {} in destination config"
-          .format(b_name, e))
+        logging.error("%s: Skipping because of missing key %s in destination config", b_name, e)
         # FIXME: Delete db dump
         continue
       
@@ -196,9 +199,8 @@ for b_name, b_conf in backups.items():
         
         
       except subprocess.CalledProcessError as e:
-        #print("Error:", e)
-        print(e)
+        logging.error("%s: %s", b_name, e)
+        # FIXME: secrets show up if we print the error here
         # FIXME: Delete db dump?
       else:
-        print("Backed up to: {}{}".format(s3_path, file_name))
-
+        logging.info("%s: Backed up database '%s' to %s%s", b_name, db, s3_path, file_name)
