@@ -214,30 +214,24 @@ for b_name, b_conf in config['backups'].items():
         # FIXME: Delete db dump
         continue
       
-    
+      # FIXME: If debug, print out rclone version
+      # rc_args + ['version']
+      # rc_args + ['ls', s3_path]
+      # rc_args + ['size', s3_path]
       #print(rc_args)
+      # FIXME: Add dry-run option in config
       try:
-        # FIXME: These could be looped
-        a_mkdir = rc_args + ['mkdir', s3_path]
-        a_ls = rc_args + ['ls', s3_path]
-        a_size = rc_args + ['size', s3_path]
-        a_version = rc_args + ['version']
-        
-        #a_move = rc_args + ['--dry-run', '--progress', 'move', file_path, s3_path]
-        #a_move = rc_args + ['--progress', 'move', file_path, s3_path]
-        a_move = rc_args + ['move', file_path, s3_path]
-        
-        
-        #subprocess.run(a_version, check=True)
-        
-        subprocess.run(a_mkdir, check=True)
-        
-        subprocess.run(a_move, check=True)
-        
-        #subprocess.run(a_ls, check=True)
-        
-        #subprocess.run(a_size, check=True)
-        
+        # Commands to perform
+        commands = [
+          # Make the destination dir (It may not exist)
+          rc_args + ['mkdir', s3_path],
+          rc_args + ['move', file_path, s3_path]
+          ]
+
+        # Perform commands
+        for c in commands:
+          r = subprocess.run(c, check=True)
+          logging.debug("%s: %s", b_name, r)
         
       except subprocess.CalledProcessError as e:
         logging.error("%s: %s", b_name, e)
