@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
+import os
 import subprocess
+
+from datetime import datetime
 
 #import tempfile
 #import gzip
@@ -20,13 +22,14 @@ sources = {
     },
   }
 
+
 destinations = {
   's3': {
-    'acces_key_id': None,
-    'bucket': None,
-    'endpoint': None,
-    'secret_access_key': None,
-    'region': None
+    'access_key_id': os.getenv('S3_ACCESS_KEY_ID'),
+    'bucket': os.getenv('S3_BUCKET'),
+    'endpoint': os.getenv('S3_ENDPOINT'),
+    'secret_access_key': os.getenv('S3_SECRET_ACCESS_KEY'),
+    #'region': None
     },
   'local': {
     'path': None
@@ -51,15 +54,8 @@ backups = yaml.safe_load(stream)
 
 
 for b_name, b_conf in backups.items():
-  print(b_name)
+  #print("Processing backup entry {}".format(b_name))
   
-  
-  # Defaults for this type
-  #d = sources[s['type']]
-  #print(d)
-  
-  #print("Source:", b_conf['source'])
-  #print("Destination:", b_conf['destination'])
 
   # FIXME: Validate config
   try:
@@ -83,7 +79,7 @@ for b_name, b_conf in backups.items():
     dbs = s['databases']
 
   except KeyError as e:
-    print("Skipping '{}' because of missing key {} in source config"
+    print("{}: Skipping because of missing key '{}' in source config"
       .format(b_name, e))
     continue
 
@@ -134,8 +130,7 @@ for b_name, b_conf in backups.items():
       
 
     if p_dump.returncode != 0 or p_comp.returncode != 0:
-      print("Could not dump database {} from host {}".format(db, b_conf['source'].get('host')))
-      #print("stderr: {}".format(d_stderr))
+      print("{}: Could not dump database {} from host {}".format(b_name, db, b_conf['source'].get('host')))
       print(dump_stderr)
       print(comp_stderr)
     else:
@@ -148,14 +143,14 @@ for b_name, b_conf in backups.items():
     if d['type'] == 's3':
       
       try:
-        # Args to pass to rclone
-        #print(d)
+        print(d)
+        # Args to pass to rclone. Get env variables for values not supplied in config.
         rc_args = [
           'rclone',
           '--config', 'rclone.conf',
-          '--s3-endpoint', d['endpoint'],
-          '--s3-access-key-id', d['access_key_id'],
-          '--s3-secret-access-key', d['secret_access_key']
+          '--s3-endpoint', d.get('endpoint', os.getenv('S3_ENDPOINT')),
+          '--s3-access-key-id', d.get('access_key_id', os.getenv('S3_ACCESS_KEY_ID')),
+          '--s3-secret-access-key', d.get('secret_access_key', os.getenv('S3_SECRET_ACCESS_KEY'))
           ]
         # This is the path on the remote where the file will be stored
         # FIXME: these could have / in them check
