@@ -17,4 +17,4 @@ COPY src/requirements.txt .
 RUN pip install --requirement requirements.txt
 
 # Do a backup
-ENTRYPOINT [ "python", "/usr/local/bin/do-db-backup.py"]
+ENTRYPOINT [ "python", "/usr/local/bin/do-db-backup.py", "--log-file", "/var/log/backups.log"]

@@ -11,8 +11,6 @@ import yaml
 
 #import tempfile
 
-# Configure logging
-logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', level=logging.INFO)
 
 parser = argparse.ArgumentParser(description='Database backups')
 
@@ -23,7 +21,32 @@ parser.add_argument(
     default='/etc/backups.yaml'
     )
 
+parser.add_argument(
+    '--log-file',
+    required=False,
+    help=('Log file')
+    )
+
 args = parser.parse_args()
+
+# A list of logging handlers
+logging_handlers = []
+
+# Handler for logging to file
+if args.log_file:
+  logging_handlers.append(logging.FileHandler(args.log_file))
+
+# Log to stdout if not disabled
+#if not args.disable_log_stdout:
+logging_handlers.append(logging.StreamHandler())
+
+
+# Configure logging
+logging.basicConfig(
+  format='%(asctime)s:%(levelname)s:%(message)s',
+  level=logging.INFO,
+  handlers=logging_handlers
+  )
 
 '''
 # Sources definition
@@ -71,8 +94,6 @@ except KeyError as e:
   logging.error("Missing key %s in config", e)
   exit(1)
 
-
-# FIXME: Define valid configs as dicts
 
 
 for b_name, b_conf in config['backups'].items():
