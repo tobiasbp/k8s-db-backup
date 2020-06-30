@@ -1,4 +1,5 @@
 rootdir: my_database_backups
+rclone_config: /etc/rclone.conf
 timeout: 600
 loglevel: info
 backups:

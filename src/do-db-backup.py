@@ -36,40 +36,9 @@ logging_handlers = []
 # Handler for logging to file
 if args.log_file:
   logging_handlers.append(logging.FileHandler(args.log_file))
-
-# Log to stdout if not disabled
-#if not args.disable_log_stdout:
+  
+# Always log to stdout
 logging_handlers.append(logging.StreamHandler())
-
-
-
-'''
-# Sources definition
-sources = {
-  'mysql': {
-    'databases': [],
-    'host': None,
-    'password': None,
-    'port': '3306',
-    'user': None
-    },
-  }
-
-
-destinations = {
-  's3': {
-    'access_key_id': None,
-    'bucket': None,
-    'endpoint': None,
-    'secret_access_key': None,
-    #'region': None
-    },
-  'local': {
-    'path': None
-    }
-  }
-'''
-
 
 
 # Load configuration file
@@ -78,7 +47,9 @@ try:
 except FileNotFoundError:
   logging.error("Configuration file '{}' was not found. Use flag '--config FILE' to override default config file path.".format(args.config))
   exit(1)
+
 config = yaml.safe_load(stream)
+
 
 # Configure logging
 logging.basicConfig(
@@ -86,6 +57,7 @@ logging.basicConfig(
   level=eval("logging.{}".format(config.get('loglevel', "INFO").upper())),
   handlers=logging_handlers
   )
+
 
 # Dir to store local temporary backups
 BACKUP_DIR = '/tmp'
@@ -96,6 +68,8 @@ try:
 
   # This is dir on the remote where backups will be stored
   TOP_DIR = config['rootdir']
+  
+  config['rclone_config']
 except KeyError as e:
   logging.error("Missing key %s in config", e)
   exit(1)
@@ -180,8 +154,9 @@ for b_name, b_conf in config['backups'].items():
 
     if p_dump.returncode != 0 or p_comp.returncode != 0:
       logging.error("%s: Could not dump database '%s' from host '%s'", b_name, db, s.get('host'))
-      print(dump_stderr)
-      print(comp_stderr)
+      logging.error(dump_stderr)
+      logging.error(comp_stderr)
+      continue
     else:
       logging.debug("%s: Dumped database '%s' from host '%s' to local file '%s'", b_name, db, s.get('host'), file_name)  
 
@@ -196,7 +171,7 @@ for b_name, b_conf in config['backups'].items():
         # Args to pass to rclone. Get env variables for values not supplied in config.
         rc_args = [
           'rclone',
-          '--config', 'rclone.conf',
+          '--config', config['rclone_config'],
           '--s3-endpoint', d.get('endpoint', os.getenv('S3_ENDPOINT')),
           '--s3-access-key-id', d.get('access_key_id', os.getenv('S3_ACCESS_KEY_ID')),
           '--s3-secret-access-key', d.get('secret_access_key', os.getenv('S3_SECRET_ACCESS_KEY'))
