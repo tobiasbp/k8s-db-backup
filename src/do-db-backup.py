@@ -73,7 +73,11 @@ destinations = {
 
 
 # Load configuration file
-stream = open(args.config, 'r')
+try:
+  stream = open(args.config, 'r')
+except FileNotFoundError:
+  logging.error("Configuration file '{}' was not found. Use flag '--config FILE' to override default config file path.".format(args.config))
+  exit(1)
 config = yaml.safe_load(stream)
 
 # Configure logging
@@ -230,6 +234,7 @@ for b_name, b_conf in config['backups'].items():
 
         # Perform commands
         for c in commands:
+          # FIXME: Add timeout?
           r = subprocess.run(c, check=True)
           logging.debug("%s: %s", b_name, r)
         
