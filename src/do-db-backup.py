@@ -15,6 +15,13 @@ import yaml
 # FIXME: Make a list if command line arguments which should
 # be obfuscated when logging. Don't leak secrets in logs!
 
+# Valid types
+TYPES = {
+  'source': ['mysql'],
+  'destination': ['s3', 'local']
+  }
+
+
 # FLAGS #
 
 parser = argparse.ArgumentParser(
@@ -76,10 +83,12 @@ BACKUP_DIR = '/tmp'
 
 try:
   # Default timeout when dumping database
-  DUMP_TIMEOUT = config['timeout']
+  #DUMP_TIMEOUT = config['timeout']
+  config['timeout']
 
   # This is dir on the remote where backups will be stored
-  TOP_DIR = config['rootdir']
+  #TOP_DIR = config['rootdir']
+  config['rootdir']
   
   config['rclone_config']
 except KeyError as e:
@@ -90,10 +99,11 @@ except KeyError as e:
 
 
 for b_name, b_conf in config['backups'].items():
+
   logging.debug("%s: Processing backup entry", b_name)
   
+  # DUMP DATABASE #
 
-  # FIXME: Validate config
   try:
     # Source config
     s = b_conf['source']
@@ -101,22 +111,35 @@ for b_name, b_conf in config['backups'].items():
     # Destination config
     d = b_conf['destination']
 
-    # The arguments to pass to mysqldump
+    # Check source type
+    if s['type'] not in TYPES['source']:
+      logging.error("%s: Unknown source type %s", b_name, s['type'])
+      continue
+  
+    # check destination type
+    if d['type'] not in TYPES['destination']:
+      logging.error("%s: Unknown destination type %s", b_name, d['type'])
+      continue
+
+    # Base arguments to pass to mysqldump
     args = [
       'mysqldump',
-      '--host=' + s['host'],
-      # Default port if not defined
-      '--port=' + str(s.get('port', 3306)),
+      '--host=' + str(s['host']),
+      '--port=' + str(s.get('port', 3306)), # Defaults to 3306
       '--user=' + str(s['user']),
       '--password=' + str(s['password']),
       '--databases'
       ]
+
     # List of databases to back up
     dbs = s['databases']
+
 
   except KeyError as e:
     logging.error("%s: Skipping because of missing key '%s' in source config", b_name, e)
     continue
+
+
 
   # Run through databases to back up
   for db in dbs:
@@ -149,8 +172,8 @@ for b_name, b_conf in config['backups'].items():
 
     # Wait for pipe to complete
     try:
-      comp_stdout, comp_stderr = p_comp.communicate(timeout=DUMP_TIMEOUT)
-      dump_stdout, dump_stderr = p_dump.communicate(timeout=DUMP_TIMEOUT)
+      comp_stdout, comp_stderr = p_comp.communicate(timeout=config['timeout'])
+      dump_stdout, dump_stderr = p_dump.communicate(timeout=config['timeout'])
     except subprocess.TimeoutExpired as e:
       # FIXME: Are these not killed automatically on timeout? Only the one which crashed. What about the other?
       p_comp.kill()
@@ -162,7 +185,6 @@ for b_name, b_conf in config['backups'].items():
       # Close backup file
       out_file.close()
       
-
     if p_dump.returncode != 0 or p_comp.returncode != 0:
       logging.error("%s: Could not dump database '%s' from host '%s'", b_name, db, s.get('host'))
       logging.error(dump_stderr)
@@ -172,14 +194,12 @@ for b_name, b_conf in config['backups'].items():
       logging.debug("%s: Dumped database '%s' from host '%s' to local file '%s'", b_name, db, s.get('host'), path_temp)  
 
 
-    ###################
-    # TRANSFER BACKUP #
-    ###################
+    # BACKUP #
+
     if d['type'] == 's3':
       
       try:
-
-        # Args to pass to rclone. Get env variables for values not supplied in config.
+        # rclone base args. Credentials from env if not in config
         rc_args = [
           'rclone',
           '--config', config['rclone_config'],
@@ -188,11 +208,11 @@ for b_name, b_conf in config['backups'].items():
           '--s3-secret-access-key', d.get('secret_access_key', os.getenv('S3_SECRET_ACCESS_KEY'))
           ]
 
-        # The full path to the file on S3
+        # Full path to the file on S3
         path_dest = PurePath(
           "s3:",
           d.get('bucket',os.getenv('S3_BUCKET')),
-          TOP_DIR,
+          config['rootdir'],
           b_name,
           str(b_datetime.year),
           str(b_datetime.month),
@@ -211,7 +231,7 @@ for b_name, b_conf in config['backups'].items():
 
       # FIXME: Add dry-run option in config
       try:
-        # Commands to perform
+        # Bild commands to perform
         commands = [
           # Make the destination dir (It may not exist)
           rc_args + ['mkdir', path_dest.parent],
