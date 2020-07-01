@@ -83,14 +83,11 @@ BACKUP_DIR = '/tmp'
 
 try:
   # Default timeout when dumping database
-  #DUMP_TIMEOUT = config['timeout']
   config['timeout']
 
   # This is dir on the remote where backups will be stored
-  #TOP_DIR = config['rootdir']
   config['rootdir']
-  
-  config['rclone_config']
+
 except KeyError as e:
   logging.error("Missing key %s in config", e)
   exit(1)
@@ -99,10 +96,10 @@ except KeyError as e:
 
 
 for b_name, b_conf in config['backups'].items():
-
-  logging.debug("%s: Processing backup entry", b_name)
   
   # DUMP DATABASE #
+
+  # FIXME: No / in b_name allowed? No spaces?
 
   try:
     # Source config
@@ -113,12 +110,12 @@ for b_name, b_conf in config['backups'].items():
 
     # Check source type
     if s['type'] not in TYPES['source']:
-      logging.error("%s: Unknown source type %s", b_name, s['type'])
+      logging.error("%s: Unknown source type '%s'", b_name, s['type'])
       continue
   
     # check destination type
     if d['type'] not in TYPES['destination']:
-      logging.error("%s: Unknown destination type %s", b_name, d['type'])
+      logging.error("%s: Unknown destination type '%s'", b_name, d['type'])
       continue
 
     # Base arguments to pass to mysqldump
@@ -196,18 +193,21 @@ for b_name, b_conf in config['backups'].items():
 
     # BACKUP #
 
-    if d['type'] == 's3':
-      
-      try:
-        # rclone base args. Credentials from env if not in config
-        rc_args = [
-          'rclone',
-          '--config', config['rclone_config'],
-          '--s3-endpoint', d.get('endpoint', os.getenv('S3_ENDPOINT')),
-          '--s3-access-key-id', d.get('access_key_id', os.getenv('S3_ACCESS_KEY_ID')),
-          '--s3-secret-access-key', d.get('secret_access_key', os.getenv('S3_SECRET_ACCESS_KEY'))
-          ]
+     
+    try:
 
+      if d['type'] == 'local':
+        path_dest = PurePath(d['path'], path_temp.name)
+  
+        commands = [
+          # Make the destination dir
+          ["mkdir", "-p", path_dest.parent],
+          # Move the temp file to destination dir
+          ["mv", path_temp, path_dest]
+          ]
+  
+      if d['type'] == 's3':
+        
         # Full path to the file on S3
         path_dest = PurePath(
           "s3:",
@@ -218,19 +218,21 @@ for b_name, b_conf in config['backups'].items():
           str(b_datetime.month),
           path_temp.name # File name temp file
           )
+  
+        # rclone base args. Credentials from env if not in config
+        rc_args = [
+          'rclone',
+          '--config', config['rclone_config'],
+          '--s3-endpoint', d.get('endpoint', os.getenv('S3_ENDPOINT')),
+          '--s3-access-key-id', d.get('access_key_id', os.getenv('S3_ACCESS_KEY_ID')),
+          '--s3-secret-access-key', d.get('secret_access_key', os.getenv('S3_SECRET_ACCESS_KEY'))
+          ]
+  
+        # FIXME: If debug, print out rclone version
+        # rc_args + ['version']
+        # rc_args + ['ls', s3_path]
+        # rc_args + ['size', s3_path]
 
-      except KeyError as e:
-        logging.error("%s: Skipping because of missing key %s in destination config", b_name, e)
-        # FIXME: Delete db dump
-        continue
-      
-      # FIXME: If debug, print out rclone version
-      # rc_args + ['version']
-      # rc_args + ['ls', s3_path]
-      # rc_args + ['size', s3_path]
-
-      # FIXME: Add dry-run option in config
-      try:
         # Bild commands to perform
         commands = [
           # Make the destination dir (It may not exist)
@@ -239,16 +241,27 @@ for b_name, b_conf in config['backups'].items():
           rc_args + ['move', path_temp, path_dest]
           ]
 
-        # Perform commands
-        for c in commands:
-          # FIXME: Add timeout?
-          r = subprocess.run(c, check=True)
-          # FIXME: Secrets shown here!
-          logging.debug("%s: %s", b_name, r)
+    except KeyError as e:
+      logging.error("%s: Skipping because of missing key %s in destination config", b_name, e)
+      # FIXME: Delete db dump
+      continue
 
-      except subprocess.CalledProcessError as e:
-        logging.error("%s: %s", b_name, e)
-        # FIXME: secrets show up if we print the error here
-        # FIXME: Delete db dump?
-      else:
-        logging.info("%s: Backed up database '%s' to %s", b_name, db, path_dest)
+    # Perform backup commands
+    try:
+      # FIXME: Add dry-run option in config
+      for c in commands:
+        # FIXME: Add timeout?
+        r = subprocess.run(c, check=True)
+        # FIXME: Secrets shown here!
+        logging.debug("%s: %s", b_name, r)
+
+    except subprocess.CalledProcessError as e:
+      logging.error("%s: %s", b_name, e)
+      # FIXME: secrets show up if we print the error here
+      # FIXME: Delete db dump?
+    else:
+      logging.info("%s: Backed up database '%s' to %s", b_name, db, path_dest)
+
+      
+
+
