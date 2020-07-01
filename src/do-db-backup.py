@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import re
 import subprocess
 
 from datetime import datetime
@@ -20,6 +21,9 @@ TYPES = {
   'source': ['mysql'],
   'destination': ['s3', 'local']
   }
+
+# Backup names must be word characters only
+re_backup_name = re.compile("^\w+$")
 
 
 # FLAGS #
@@ -99,7 +103,10 @@ for b_name, b_conf in config['backups'].items():
   
   # DUMP DATABASE #
 
-  # FIXME: No / in b_name allowed? No spaces?
+  # Abort on invalid backup name
+  if not re_backup_name.match(b_name):
+    logging.error("Invalid backup name '%s'", b_name)
+    continue
 
   try:
     # Source config
@@ -197,7 +204,12 @@ for b_name, b_conf in config['backups'].items():
     try:
 
       if d['type'] == 'local':
-        path_dest = PurePath(d['path'], path_temp.name)
+        path_dest = PurePath(
+          d['path'],
+          b_name,
+          str(b_datetime.year),
+          str(b_datetime.month),
+          path_temp.name)
   
         commands = [
           # Make the destination dir
@@ -261,7 +273,4 @@ for b_name, b_conf in config['backups'].items():
       # FIXME: Delete db dump?
     else:
       logging.info("%s: Backed up database '%s' to %s", b_name, db, path_dest)
-
-      
-
 
