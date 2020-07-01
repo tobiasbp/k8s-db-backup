@@ -6,6 +6,7 @@ import os
 import subprocess
 
 from datetime import datetime
+from pathlib import PurePath
 
 import yaml
 
@@ -109,17 +110,15 @@ for b_name, b_conf in config['backups'].items():
   for db in dbs:
     # The official time for this backup
     b_datetime = datetime.now()
-    
-    # Name of backup file
-    file_name =  "{}_{}.sql.gz".format(
-      db, b_datetime.isoformat() 
+
+    # Full path to the temporary local backup
+    path_temp = PurePath(
+      BACKUP_DIR,
+      "{}_{}.sql.gz".format(db, b_datetime.isoformat())
       )
 
-    # Full path to backup file
-    file_path = "{}/{}".format(BACKUP_DIR, file_name)
-    
     # Create backup file
-    out_file = open(file_path, '+w')
+    out_file = open(path_temp, '+w')
 
     # Dump database to a pipe
     p_dump = subprocess.Popen(
@@ -158,7 +157,7 @@ for b_name, b_conf in config['backups'].items():
       logging.error(comp_stderr)
       continue
     else:
-      logging.debug("%s: Dumped database '%s' from host '%s' to local file '%s'", b_name, db, s.get('host'), file_name)  
+      logging.debug("%s: Dumped database '%s' from host '%s' to local file '%s'", b_name, db, s.get('host'), path_temp)  
 
 
     ###################
@@ -167,7 +166,7 @@ for b_name, b_conf in config['backups'].items():
     if d['type'] == 's3':
       
       try:
-        #print(d)
+
         # Args to pass to rclone. Get env variables for values not supplied in config.
         rc_args = [
           'rclone',
@@ -176,18 +175,18 @@ for b_name, b_conf in config['backups'].items():
           '--s3-access-key-id', d.get('access_key_id', os.getenv('S3_ACCESS_KEY_ID')),
           '--s3-secret-access-key', d.get('secret_access_key', os.getenv('S3_SECRET_ACCESS_KEY'))
           ]
-        # This is the path on the remote where the file will be stored
-        # FIXME: these could have / in them check
-        # FIXME: Use path library
-        s3_path = "s3:/{}/{}/{}/{}/{}/".format(
-          d.get('bucket', os.getenv('S3_BUCKET')),
+
+        # The full path to the file on S3
+        path_dest = PurePath(
+          "s3:",
+          d.get('bucket',os.getenv('S3_BUCKET')),
           TOP_DIR,
           b_name,
-          b_datetime.year,
-          b_datetime.month,
+          str(b_datetime.year),
+          str(b_datetime.month),
+          path_temp.name # File name temp file
           )
 
-        #print(s3_path)
       except KeyError as e:
         logging.error("%s: Skipping because of missing key %s in destination config", b_name, e)
         # FIXME: Delete db dump
@@ -197,25 +196,27 @@ for b_name, b_conf in config['backups'].items():
       # rc_args + ['version']
       # rc_args + ['ls', s3_path]
       # rc_args + ['size', s3_path]
-      #print(rc_args)
+
       # FIXME: Add dry-run option in config
       try:
         # Commands to perform
         commands = [
           # Make the destination dir (It may not exist)
-          rc_args + ['mkdir', s3_path],
-          rc_args + ['move', file_path, s3_path]
+          rc_args + ['mkdir', path_dest.parent],
+          # Move the file to S3
+          rc_args + ['move', path_temp, path_dest]
           ]
 
         # Perform commands
         for c in commands:
           # FIXME: Add timeout?
           r = subprocess.run(c, check=True)
+          # FIXME: Secrets shown here!
           logging.debug("%s: %s", b_name, r)
-        
+
       except subprocess.CalledProcessError as e:
         logging.error("%s: %s", b_name, e)
         # FIXME: secrets show up if we print the error here
         # FIXME: Delete db dump?
       else:
-        logging.info("%s: Backed up database '%s' to %s%s", b_name, db, s3_path, file_name)
+        logging.info("%s: Backed up database '%s' to %s", b_name, db, path_dest)
