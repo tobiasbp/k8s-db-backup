@@ -15,6 +15,29 @@ import yaml
 
 # FIXME: Make a list if command line arguments which should
 # be obfuscated when logging. Don't leak secrets in logs!
+SECRET_ARGS = [
+  '--s3-access-key-id',
+  '--s3-secret-access-key',
+  ]
+
+
+def clean_args(args):
+  '''
+  Hide sensitive information in command arguments list
+  '''
+
+  # If we find a sensitve argument in the list
+  # Replace the following entry in the list
+  # That must be the secret
+  for s in SECRET_ARGS:
+    try:
+      args[args.index(s)+1] = '******'
+    except:
+      pass
+
+  # Return object with no sensitive information
+  return args
+
 
 # Valid types
 TYPES = {
@@ -29,7 +52,7 @@ re_backup_name = re.compile("^\w+$")
 # FLAGS #
 
 parser = argparse.ArgumentParser(
-  description='Database backups'
+  description='Database backups. Supply a config file with backups to perform.'
   )
 
 parser.add_argument(
@@ -206,6 +229,7 @@ for b_name, b_conf in config['backups'].items():
       if d['type'] == 'local':
         path_dest = PurePath(
           d['path'],
+          config['rootdir'],
           b_name,
           str(b_datetime.year),
           str(b_datetime.month),
@@ -264,12 +288,10 @@ for b_name, b_conf in config['backups'].items():
       for c in commands:
         # FIXME: Add timeout?
         r = subprocess.run(c, check=True)
-        # FIXME: Secrets shown here!
-        logging.debug("%s: %s", b_name, r)
+        logging.debug("%s: %s", b_name, clean_args(r.args))
 
     except subprocess.CalledProcessError as e:
-      logging.error("%s: %s", b_name, e)
-      # FIXME: secrets show up if we print the error here
+      logging.error("%s: %s", b_name, clean_args(e.cmd))
       # FIXME: Delete db dump?
     else:
       logging.info("%s: Backed up database '%s' to %s", b_name, db, path_dest)
