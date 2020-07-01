@@ -12,8 +12,14 @@ import yaml
 
 #import tempfile
 
+# FIXME: Make a list if command line arguments which should
+# be obfuscated when logging. Don't leak secrets in logs!
 
-parser = argparse.ArgumentParser(description='Database backups')
+# FLAGS #
+
+parser = argparse.ArgumentParser(
+  description='Database backups'
+  )
 
 parser.add_argument(
     '--config',
@@ -31,16 +37,8 @@ parser.add_argument(
 # Parse the command line arguments
 args = parser.parse_args()
 
-# A list of logging handlers
-logging_handlers = []
 
-# Handler for logging to file
-if args.log_file:
-  logging_handlers.append(logging.FileHandler(args.log_file))
-  
-# Always log to stdout
-logging_handlers.append(logging.StreamHandler())
-
+# LOAD CONFIG #
 
 # Load configuration file
 try:
@@ -49,8 +47,22 @@ except FileNotFoundError:
   logging.error("Configuration file '{}' was not found. Use flag '--config FILE' to override default config file path.".format(args.config))
   exit(1)
 
-config = yaml.safe_load(stream)
+# Parse the config file
+try:
+  config = yaml.safe_load(stream)
+except yaml.YAMLError as e:
+  logging.error("Could not parse configuration file: %s", e)
+  exit(1)
 
+
+# LOGGING #
+
+# Log to stdout
+logging_handlers = [logging.StreamHandler()]
+
+# Add logging to file if flag is set
+if args.log_file:
+  logging_handlers.append(logging.FileHandler(args.log_file))
 
 # Configure logging
 logging.basicConfig(
@@ -58,7 +70,6 @@ logging.basicConfig(
   level=eval("logging.{}".format(config.get('loglevel', "INFO").upper())),
   handlers=logging_handlers
   )
-
 
 # Dir to store local temporary backups
 BACKUP_DIR = '/tmp'
@@ -74,6 +85,7 @@ try:
 except KeyError as e:
   logging.error("Missing key %s in config", e)
   exit(1)
+
 
 
 
