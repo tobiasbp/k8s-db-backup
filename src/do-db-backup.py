@@ -47,8 +47,8 @@ TYPES = {
   'destination': ['s3', 'local']
   }
 
-# Backup names must be word characters only
-re_backup_name = re.compile("^\w+$")
+# Backup names can only have word characters and '-'
+re_backup_name = re.compile("^[\w-]+$")
 
 
 # FLAGS #
@@ -122,8 +122,7 @@ except KeyError as e:
   exit(1)
 
 
-
-
+# Run through the backups to perform
 for b_name, b_conf in config['backups'].items():
   
   # DUMP DATABASE #
@@ -150,21 +149,33 @@ for b_name, b_conf in config['backups'].items():
       logging.error("%s: Unknown destination type '%s'", b_name, d['type'])
       continue
 
+    # A temp file for storing the password to use for database access
+    # This way, we can't leak it in the logs, and we get no warning
+    # about using passwords on the command line
+    my_conf = tempfile.NamedTemporaryFile()
+
+    # Write password to file
+    my_conf.write(
+      "[mysqldump]\npassword={}".format(s['password']).encode("utf-8")
+      )
+    # Point to beginning of file so mysqldump can read the whole file
+    my_conf.seek(0)
+
     # Base arguments to pass to mysqldump
     # FIXME: Support compression
-    # FIXME: Put MySQL password in my.cnf so it's not on the command line (Cant be leaked in logs)
+    # FIXME: Support option quick
+    # FIXME: Support option lock-tables
     args = [
       'mysqldump',
+      '--defaults-file={}'.format(my_conf.name),
       '--host={}'.format(s['host']),
       '--port={}'.format(s.get('port', 3306)), # Defaults to 3306
       '--user={}'.format(s['user']),
-      '--password={}'.format(s['password']),
       '--databases'
       ]
 
     # List of databases to back up
     dbs = s['databases']
-
 
   except KeyError as e:
     logging.error("%s: Skipping because of missing key '%s' in source config", b_name, e)
@@ -290,5 +301,6 @@ for b_name, b_conf in config['backups'].items():
     else:
       logging.info("%s: Backed up database '%s' from host '%s' to %s", b_name, db, s['host'], path_dest)
     finally:
-      # Close the temporary compressed file
+      # Close the temp files
       db_gzip.close()
+      my_conf.close()
