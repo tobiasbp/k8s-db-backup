@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
+import gzip
 import logging
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 
 from datetime import datetime
 from pathlib import PurePath
 
 import yaml
 
-#import tempfile
 
 # FIXME: Make a list if command line arguments which should
 # be obfuscated when logging. Don't leak secrets in logs!
@@ -149,12 +151,14 @@ for b_name, b_conf in config['backups'].items():
       continue
 
     # Base arguments to pass to mysqldump
+    # FIXME: Support compression
+    # FIXME: Put MySQL password in my.cnf so it's not on the command line (Cant be leaked in logs)
     args = [
       'mysqldump',
-      '--host=' + str(s['host']),
-      '--port=' + str(s.get('port', 3306)), # Defaults to 3306
-      '--user=' + str(s['user']),
-      '--password=' + str(s['password']),
+      '--host={}'.format(s['host']),
+      '--port={}'.format(s.get('port', 3306)), # Defaults to 3306
+      '--user={}'.format(s['user']),
+      '--password={}'.format(s['password']),
       '--databases'
       ]
 
@@ -179,54 +183,44 @@ for b_name, b_conf in config['backups'].items():
       "{}_{}.sql.gz".format(db, b_datetime.isoformat())
       )
 
-    # Create backup file
-    out_file = open(path_temp, '+w')
+    # Store raw database dump here
+    db_raw = tempfile.NamedTemporaryFile()
 
-    # Dump database to a pipe
-    p_dump = subprocess.Popen(
-      args + [db],
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      universal_newlines=True,
-      )
+    # Store compressed database here
+    db_gzip = tempfile.NamedTemporaryFile()
 
-    # Compress data from pipe to file
-    p_comp = subprocess.Popen(
-      ['gzip'],
-      stdin=p_dump.stdout,
-      stdout=out_file,
-      )
-
-    # Wait for pipe to complete
+    # Dump database to the temp file
     try:
-      comp_stdout, comp_stderr = p_comp.communicate(timeout=config['timeout'])
-      dump_stdout, dump_stderr = p_dump.communicate(timeout=config['timeout'])
-    except subprocess.TimeoutExpired as e:
-      # FIXME: Are these not killed automatically on timeout? Only the one which crashed. What about the other?
-      p_comp.kill()
-      p_dump.kill()
-      logging.error("%s: %s", b_name, e)
+      r = subprocess.run(
+        args + [db],
+        stdout=db_raw, 
+        check=True, # Throw exception on non 0 exit code
+        timeout=config['timeout']
+        )
+      logging.debug("%s: %s", b_name, r)
 
+    except subprocess.CalledProcessError as e:
+      logging.error("%s: %s", b_name, e)
+      continue
+
+    # Compress database dump
+    try:
+      with open(db_raw.name, 'rb') as f_in:
+        with gzip.open(db_gzip.name, 'wb') as f_out:
+          shutil.copyfileobj(f_in, f_out)
+    except Exception as e:
+      logging.error("%s: When compressing the database file: %s", b_name, e)
       continue
     finally:
-      # Close backup file
-      out_file.close()
-      
-    if p_dump.returncode != 0 or p_comp.returncode != 0:
-      logging.error("%s: Could not dump database '%s' from host '%s'", b_name, db, s.get('host'))
-      logging.error(dump_stderr)
-      logging.error(comp_stderr)
-      continue
-    else:
-      logging.debug("%s: Dumped database '%s' from host '%s' to local file '%s'", b_name, db, s.get('host'), path_temp)  
-
+      # Remove temp file
+      db_raw.close()
 
     # BACKUP #
 
-     
     try:
 
       if d['type'] == 'local':
+
         path_dest = PurePath(
           d['path'],
           config['rootdir'],
@@ -238,11 +232,11 @@ for b_name, b_conf in config['backups'].items():
         commands = [
           # Make the destination dir
           ["mkdir", "-p", path_dest.parent],
-          # Move the temp file to destination dir
-          ["mv", path_temp, path_dest]
+          # Copy the temp file to destination dir
+          ["cp", db_gzip.name, path_dest]
           ]
-  
-      if d['type'] == 's3':
+
+      elif d['type'] == 's3':
         
         # Full path to the file on S3
         path_dest = PurePath(
@@ -273,8 +267,8 @@ for b_name, b_conf in config['backups'].items():
         commands = [
           # Make the destination dir (It may not exist)
           rc_args + ['mkdir', path_dest.parent],
-          # Move the file to S3
-          rc_args + ['move', path_temp, path_dest]
+          # Copy the file to S3
+          rc_args + ['copy', db_gzip.name, path_dest]
           ]
 
     except KeyError as e:
@@ -294,5 +288,7 @@ for b_name, b_conf in config['backups'].items():
       logging.error("%s: %s", b_name, clean_args(e.cmd))
       # FIXME: Delete db dump?
     else:
-      logging.info("%s: Backed up database '%s' to %s", b_name, db, path_dest)
-
+      logging.info("%s: Backed up database '%s' from host '%s' to %s", b_name, db, s['host'], path_dest)
+    finally:
+      # Close the temporary compressed file
+      db_gzip.close()
