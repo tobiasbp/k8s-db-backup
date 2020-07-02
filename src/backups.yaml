@@ -24,8 +24,5 @@ backups:
       password: 654321
       databases: [sys]
     destination:
-      type: s3
-      access_key_id: my_other_access_key_id
-      bucket: my_other_bucket
-      endpoint: my_other_endpoint
-      secret_access_key: my_other_secret_access_key
+      type: local
+      path: /tmp
