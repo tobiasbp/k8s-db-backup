@@ -155,10 +155,15 @@ for b_name, b_conf in config['backups'].items():
     # FIXME: Support option lock-tables
     args = [
       'mysqldump',
+      '--dump-date', # Add time dump was completed
       '--host={}'.format(s['host']),
       '--port={}'.format(s.get('port', 3306)), # Defaults to 3306
       '--user={}'.format(s['user']),
       ]
+
+    # Enable single transaction (No locking of databases) by default
+    if s.get('single-transaction', True):
+      args.append('--single-transaction')
 
     # A temp file for storing the password to use for database access
     # This way, we can't leak it in the logs, and we get no warning
