@@ -9,7 +9,7 @@ COPY src/do-db-backup.py /usr/local/bin/
 #RUN chmod +x /usr/local/bin/do-db-backup.py
 
 # Backups configuration
-COPY src/backups.yaml /etc/
+COPY src/backups.yaml /etc/backups/
 #RUN chmod 600 /etc/backups.yaml
 
 # Rclone needs a section for each backend 
@@ -23,4 +23,4 @@ RUN pip install --requirement requirements.txt
 RUN mkdir /var/log/backups
 
 # Do a backup
-ENTRYPOINT [ "python", "/usr/local/bin/do-db-backup.py", "--log-file", "/var/log/backups/backups.log","--config", "/etc/backups.yaml"]
+ENTRYPOINT [ "python", "/usr/local/bin/do-db-backup.py", "--log-file", "/var/log/backups/backups.log","--config", "/etc/backups/backups.yaml"]
