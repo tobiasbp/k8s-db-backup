@@ -149,42 +149,48 @@ for b_name, b_conf in config['backups'].items():
       logging.error("%s: Unknown destination type '%s'", b_name, d['type'])
       continue
 
-    # A temp file for storing the password to use for database access
-    # This way, we can't leak it in the logs, and we get no warning
-    # about using passwords on the command line
-    my_conf = tempfile.NamedTemporaryFile()
-
-    # Write password to file
-    my_conf.write(
-      "[mysqldump]\npassword={}".format(s['password']).encode("utf-8")
-      )
-    # Point to beginning of file so mysqldump can read the whole file
-    my_conf.seek(0)
-
     # Base arguments to pass to mysqldump
     # FIXME: Support compression
     # FIXME: Support option quick
     # FIXME: Support option lock-tables
     args = [
       'mysqldump',
-      '--defaults-file={}'.format(my_conf.name),
       '--host={}'.format(s['host']),
       '--port={}'.format(s.get('port', 3306)), # Defaults to 3306
       '--user={}'.format(s['user']),
-      '--databases'
       ]
 
-    # List of databases to back up
-    dbs = s['databases']
+    # A temp file for storing the password to use for database access
+    # This way, we can't leak it in the logs, and we get no warning
+    # about using passwords on the command line
+    my_conf = tempfile.NamedTemporaryFile()
+
+    if 'password' in s:
+
+      # Write password to file
+      my_conf.write(
+        "[mysqldump]\npassword={}".format(s['password']).encode("utf-8")
+        )
+
+      # Point to beginning of file so mysqldump can read the whole file
+      my_conf.seek(0)
+
+      # Make mysqldump read the config file
+      args.insert(1, '--defaults-file={}'.format(my_conf.name))
+
+    else:
+      # Make it clear that no password is to be used
+      # Adding this will warn me of using password on the command line??
+      #args.append('--skip-password')
+      pass
 
   except KeyError as e:
     logging.error("%s: Skipping because of missing key '%s' in source config", b_name, e)
     continue
 
 
-
   # Run through databases to back up
-  for db in dbs:
+  for db in s['databases']:
     # The official time for this backup
     b_datetime = datetime.now()
 
@@ -301,6 +307,8 @@ for b_name, b_conf in config['backups'].items():
     else:
       logging.info("%s: Backed up database '%s' from host '%s' to %s", b_name, db, s['host'], path_dest)
     finally:
-      # Close the temp files
+      # Close the temp backup file
       db_gzip.close()
-      my_conf.close()
+
+  # Close the temporary mysql config file with password
+  my_conf.close()
