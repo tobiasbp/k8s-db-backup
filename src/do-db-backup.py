@@ -91,6 +91,7 @@ except yaml.YAMLError as e:
   exit(1)
 
 
+
 # LOGGING #
 
 # Log to stdout
@@ -110,16 +111,18 @@ logging.basicConfig(
 # Dir to store local temporary backups
 BACKUP_DIR = '/tmp'
 
-try:
-  # Default timeout when dumping database
-  config['timeout']
+# Timeout when dumping database
+config['timeout'] = config.get('timeout', 600)
 
-  # This is dir on the remote where backups will be stored
-  config['rootdir']
+# This is dir on the remote where backups will be stored
+config['rootdir'] = config.get('rootdir', 'database_backups')
 
-except KeyError as e:
-  logging.error("Missing key %s in config", e)
-  exit(1)
+# Path to rclone configuration file
+config['rclone_config'] = config.get('rclone_config', '/etc/rclone.conf')
+
+# Check rclone config
+if not os.path.isfile(config['rclone_config']):
+  raise ValueError("'{}' is not a file".format(config['rclone_config']))
 
 
 # Run through the backups to perform
@@ -270,7 +273,7 @@ for b_name, b_conf in config['backups'].items():
           str(b_datetime.month),
           path_temp.name # File name temp file
           )
-  
+
         # rclone base args. Credentials from env if not in config
         rc_args = [
           'rclone',
