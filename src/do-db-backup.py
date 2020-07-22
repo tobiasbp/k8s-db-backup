@@ -22,6 +22,10 @@ SECRET_ARGS = [
   '--s3-secret-access-key',
   ]
 
+# The exit code to report when script is done
+# Errors may have occured, but we want to complete as many backups
+# as possible. Hence, we do not exit on errors during backups
+EXIT_CODE = 0
 
 def clean_args(args):
   '''
@@ -108,6 +112,7 @@ logging.basicConfig(
   handlers=logging_handlers
   )
 
+# FIXME: Remove, since using 'tempfile' library
 # Dir to store local temporary backups
 BACKUP_DIR = '/tmp'
 
@@ -133,6 +138,7 @@ for b_name, b_conf in config['backups'].items():
   # Abort on invalid backup name
   if not re_backup_name.match(b_name):
     logging.error("Invalid backup name '%s'", b_name)
+    EXIT_CODE = 126
     continue
 
   try:
@@ -145,11 +151,13 @@ for b_name, b_conf in config['backups'].items():
     # Check source type
     if s['type'] not in TYPES['source']:
       logging.error("%s: Unknown source type '%s'", b_name, s['type'])
+      EXIT_CODE = 126
       continue
   
     # check destination type
     if d['type'] not in TYPES['destination']:
       logging.error("%s: Unknown destination type '%s'", b_name, d['type'])
+      EXIT_CODE = 126
       continue
 
     # Base arguments to pass to mysqldump
@@ -194,6 +202,7 @@ for b_name, b_conf in config['backups'].items():
 
   except KeyError as e:
     logging.error("%s: Skipping because of missing key '%s' in source config", b_name, e)
+    EXIT_CODE = 126
     continue
 
 
@@ -235,13 +244,16 @@ for b_name, b_conf in config['backups'].items():
           shutil.copyfileobj(f_in, f_out)
     except Exception as e:
       logging.error("%s: When compressing the database file: %s", b_name, e)
+      EXIT_CODE = 126
       continue
     finally:
       # Remove temp file
       db_raw.close()
 
+
     # BACKUP #
 
+    # Build commands and paths to use
     try:
 
       if d['type'] == 'local':
@@ -299,6 +311,7 @@ for b_name, b_conf in config['backups'].items():
     except KeyError as e:
       logging.error("%s: Skipping because of missing key %s in destination config", b_name, e)
       # FIXME: Delete db dump
+      EXIT_CODE = 126
       continue
 
     # Perform backup commands
@@ -311,6 +324,7 @@ for b_name, b_conf in config['backups'].items():
 
     except subprocess.CalledProcessError as e:
       logging.error("%s: %s", b_name, clean_args(e.cmd))
+      EXIT_CODE = 126
       # FIXME: Delete db dump?
     else:
       logging.info("%s: Backed up database '%s' from host '%s' to %s", b_name, db, s['host'], path_dest)
@@ -320,3 +334,5 @@ for b_name, b_conf in config['backups'].items():
 
   # Close the temporary mysql config file with password
   my_conf.close()
+
+exit(EXIT_CODE)
