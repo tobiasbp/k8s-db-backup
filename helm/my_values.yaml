@@ -1,0 +1,37 @@
+# Example configuration for Helm chart db-backup
+
+backups:
+  timeout: 600
+  loglevel: info
+  rootdir: my_database_backups
+  backups:
+    backup_s3:
+      source:
+        type: mysql
+        host: db01.example.com
+        user: read_only
+        password: SECRET
+        databases:
+        - my_database_01
+        - my_database_02
+      destination:
+        type: s3
+        access_key_id: SECRET
+        bucket: my_bucket
+        endpoint: s3.eu-central-1.wasabisys.com
+        secret_access_key: SECRET
+    backup_local:
+      source:
+        type: mysql
+        host: db02.example.com
+        user: read_only
+        password: SECRET
+        databases:
+        - some_database
+      destination:
+        type: local
+        path: /tmp
+
+
+cronjob:
+  schedule: "0/5 * * * *"
