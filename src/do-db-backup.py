@@ -235,6 +235,7 @@ for b_name, b_conf in config['backups'].items():
 
     except subprocess.CalledProcessError as e:
       logging.error("%s: %s", b_name, e)
+      EXIT_CODE = 126
       continue
 
     # Compress database dump
