@@ -5,6 +5,13 @@
 # These are the backups to perform
 backups: {}
 
+# Environment variables to set in the container
+env: {}
+  # S3_BUCKET: ****
+  # S3_ENDPOINT: ****
+  # S3_ACCESS_KEY_ID: ****
+  # S3_SECRET_ACCESS_KEY: ****
+
 image:
   repository: tobiasbp/db-backup
   pullPolicy: IfNotPresent
