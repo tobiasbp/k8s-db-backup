@@ -130,6 +130,8 @@ running database backups as a cron job in Kubernetes.
 - [ ] Support dumping of all databases without naming them. (Could be default, if no databases mentioned)
 - [ ] Validate configuration values
 - [ ] Add helm chart to public repo
-- [ ] Post log to Google Chat (And other places) using webhooks
 - [ ] When using the S3 backend, allow for non changing backup path to take advantage of versioning in S3
+- [ ] Log to Google Chat using HTTPHandler
+- [ ] Log to remote syslog server by using SysLogHandler
+- [ ] Log to local syslog by using SysLogHandler
 - [x] Exit code should be non 0 if any errors occured during the backup run
