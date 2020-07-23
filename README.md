@@ -122,6 +122,7 @@ running database backups as a cron job in Kubernetes.
 
 # To do
 - [x] Add backend _local_
+- [x] Exit code should be non 0 if any errors occured during the backup run
 - [ ] Add config parameter for expected size of backup. Throw error/warning if backup is too small
 - [ ] Add other rclone backends by looking at [rclone config](https://rclone.org/s3/#wasabi)
 - [ ] Setting for max number of backups? Max age?
@@ -134,4 +135,4 @@ running database backups as a cron job in Kubernetes.
 - [ ] Log to Google Chat using HTTPHandler
 - [ ] Log to remote syslog server by using SysLogHandler
 - [ ] Log to local syslog by using SysLogHandler
-- [x] Exit code should be non 0 if any errors occured during the backup run
+- [ ] Make separate kubernetes secret for the environment variables. Different teams could then have access to the source & destination credentials.
