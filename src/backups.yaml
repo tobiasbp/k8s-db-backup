@@ -21,8 +21,10 @@ backups:
       type: mysql
       host: db2.example.com
       user: read_only_user
+      port: 3232
       password: 654321
       databases: [sys]
+      single-transaction: No
     destination:
       type: local
       path: /tmp
