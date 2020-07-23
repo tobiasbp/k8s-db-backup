@@ -2,6 +2,9 @@ rootdir: my_database_backups
 rclone_config: /etc/rclone.conf
 timeout: 600
 loglevel: info
+#google_chat:
+#  url: https://chat.googleapis.com/v1/spaces/XXX/messages?key=XXX
+#  loglevel: WARNING
 backups:
   backup_01:
     source:

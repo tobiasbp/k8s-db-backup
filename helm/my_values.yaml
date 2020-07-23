@@ -13,6 +13,9 @@ backups:
   timeout: 600
   loglevel: info
   rootdir: my_database_backups
+  #google_chat:
+  #  url: https://chat.googleapis.com/v1/spaces/XXX/messages?key=XXX
+  #  loglevel: WARNING
   backups:
     backup_s3:
       source:

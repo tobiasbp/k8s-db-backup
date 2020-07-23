@@ -10,7 +10,11 @@ Logging is to _standard out_ only, unless a log file
 is specified with the flag _--log-file_, in which case messages are also logged to the file.
 The configuration file is _/etc/backups.yaml_ unless a file is specified with the flag _--config_.
 
-Database backups are stored at the following path: `rootdir/backup_name/year/month/database_name+timestamp.sql.gz`
+Logging to _Google Chat_ is supported. A separate [_loglevel_](https://docs.python.org/3/library/logging.html#logging-levels) can be configured.
+That _loglevel_ must be higher than the general _loglevel_ to have any effect.
+Setting the _loglevel_ to _WARNING_(30), would post only warnings  and above to _Google Chat_ if the general _loglevel_ is set to _INFO_(20).
+
+Database backups are stored at the following path: `rootdir/backup_name/year/month/database_name+timestamp.sql.gz` on the _destination_.
 
 # Configuration
 You can configure as many _backups_ as you want. Each _backup_ needs a _source_ and a _destination_.
@@ -20,7 +24,10 @@ A source can specify more than one database to be backed up.
 rootdir: my_database_backups
 rclone_config: /etc/rclone.conf
 timeout: 600
-loglevel: info
+loglevel: INFO
+google_chat:
+  url: https://chat.googleapis.com/v1/spaces/XXX/messages?key=XXX
+  loglevel: WARNING
 backups:
   backup_01:
     source:
@@ -123,6 +130,8 @@ running database backups as a cron job in Kubernetes.
 # To do
 - [x] Add backend _local_
 - [x] Exit code should be non 0 if any errors occured during the backup run
+- [x] Log to Google Chat
+- [ ] Spin out GoggleChatHandler in to seperate PyPI package for reuse
 - [ ] Add config parameter for expected size of backup. Throw error/warning if backup is too small
 - [ ] Add other rclone backends by looking at [rclone config](https://rclone.org/s3/#wasabi)
 - [ ] Setting for max number of backups? Max age?
@@ -132,7 +141,6 @@ running database backups as a cron job in Kubernetes.
 - [ ] Validate configuration values
 - [ ] Add helm chart to public repo
 - [ ] When using the S3 backend, allow for non changing backup path to take advantage of versioning in S3
-- [ ] Log to Google Chat using HTTPHandler
 - [ ] Log to remote syslog server by using SysLogHandler
 - [ ] Log to local syslog by using SysLogHandler
 - [ ] Make separate kubernetes secret for the environment variables. Different teams could then have access to the source & destination credentials.

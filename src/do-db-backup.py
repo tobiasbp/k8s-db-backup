@@ -3,6 +3,7 @@
 import argparse
 import gzip
 import logging
+import logging.handlers
 import os
 import re
 import shutil
@@ -43,6 +44,55 @@ def clean_args(args):
 
   # Return object with no sensitive information
   return args
+
+
+class GoogleChatHandler(logging.Handler):
+  """
+  Log to Google Chat using webhooks
+  """
+
+  def __init__(self, url):
+    """
+    Instantiate and parse URL
+    """
+    from urllib.parse import urlparse
+    self.url = urlparse(url)
+    logging.Handler.__init__(self)
+
+  def mapLogRecord(self, record):
+    """
+    Map a LogRecord to a Google Chat compatible dict
+    """
+    import json
+    d = {'text': "{}: {}".format(record.levelname, record.getMessage())}
+    return json.dumps(d)
+
+  def emit(self, record):
+    """Emit a record."""
+    try:
+      import http.client, json
+
+      # The connection to use
+      conn = http.client.HTTPSConnection(self.url.netloc)
+
+      # The headers to send
+      headers = {'Content-type': 'application/json; charset=UTF-8'}
+
+      # Convert the logRecord to the data we want to post
+      data = self.mapLogRecord(record)
+
+      # Post the request
+      conn.request("POST", "{}?{}".format(self.url.path, self.url.query), data)
+
+      # Get the response
+      response = conn.getresponse()
+
+      # Would we ever get anothing other than 200 on a success?
+      if response.status != 200:
+        raise ConnectionError("Non 200 response when posting to Google Chat.")
+
+    except Exception:
+      self.handleError(record)
 
 
 # Valid types
@@ -101,14 +151,26 @@ except yaml.YAMLError as e:
 # Log to stdout
 logging_handlers = [logging.StreamHandler()]
 
+
 # Add logging to file if flag is set
 if args.log_file:
   logging_handlers.append(logging.FileHandler(args.log_file))
 
+
+# Add logging to Google Chat if configured:
+if 'google_chat' in config:
+  gch = GoogleChatHandler(config['google_chat']['url'])
+
+  # Set log level. Must be higher (More severe) then general logging to have any effect
+  gch.setLevel(config['google_chat'].get('loglevel', 'INFO').upper())
+
+  logging_handlers.append(gch)
+
+
 # Configure logging
 logging.basicConfig(
   format='%(asctime)s:%(levelname)s:%(message)s',
-  level=eval("logging.{}".format(config.get('loglevel', "INFO").upper())),
+  level=config.get('loglevel', "INFO").upper(),
   handlers=logging_handlers
   )
 
