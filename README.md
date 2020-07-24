@@ -6,7 +6,7 @@ In an attempt to complete as many backups as possible, the script will
 not exit on an error, but will report a non 0 exit code after all backups
 have been attempted.
 
-Logging is to _standard out_ only, unless a log file
+Local logging is to _standard out_ only, unless a log file
 is specified with the flag _--log-file_, in which case messages are also logged to the file.
 The configuration file is _/etc/backups.yaml_ unless a file is specified with the flag _--config_.
 
@@ -69,16 +69,16 @@ sources are to be backed up to single S3 destination.
 How to run db-backup.
 
 ## In Kubernetes with Helm
+You can download the Helm chart in [this repository](https://github.com/tobiasbp/helm-charts/tree/master/charts/db-backup)
+or you can install it by adding the Helm package repository as described below.
 
-* Check out repository
-* Go to dir _helm_
-* Copy *my_values.yaml* to *my_values.local.yaml*
-* Add your configuration to *my_values.local.yaml*
-* See Kubernetes files to be generated: `helm template -f my_values.local.yaml db-backup`
-* Install in Kubernetes as _my-db-backup_: `helm install my-db-backup db-backup -f my_values.local.yaml`
+* Add repository to Helm: `helm repo add charts.balle-petersen.org https://charts.balle-petersen.org`
+* Create local configuration file based on *helm/my_values.yaml* in this repository
+* Install in Kubernetes as _my-db-backup_: `helm install my-db-backup charts.balle-petersen.org/db-backup -f my_values.yaml`
 
-When updating configuration in _my_values.local.yaml_ in the future, the following command can be used to upgrade the running release:
-`helm upgrade my-db-backup db-backup -f my_values.local.yaml`
+When updating configuration in _my_values.local.yaml_ in the future, or the chart is updated, the following
+command can be used to upgrade the running release:
+`helm upgrade my-db-backup charts.balle-petersen.org/db-backup -f my_values.yaml`
 
 ## In Docker
 * Check out repository
@@ -131,6 +131,7 @@ running database backups as a cron job in Kubernetes.
 - [x] Add backend _local_
 - [x] Exit code should be non 0 if any errors occured during the backup run
 - [x] Log to Google Chat
+- [x] Add helm chart to public repo
 - [ ] Spin out GoggleChatHandler in to seperate PyPI package for reuse
 - [ ] Add config parameter for expected size of backup. Throw error/warning if backup is too small
 - [ ] Add other rclone backends by looking at [rclone config](https://rclone.org/s3/#wasabi)
@@ -139,7 +140,6 @@ running database backups as a cron job in Kubernetes.
 - [ ] Support encrypted MySQL connections
 - [ ] Support dumping of all databases without naming them. (Could be default, if no databases mentioned)
 - [ ] Validate configuration values
-- [ ] Add helm chart to public repo
 - [ ] When using the S3 backend, allow for non changing backup path to take advantage of versioning in S3
 - [ ] Log to remote syslog server by using SysLogHandler
 - [ ] Log to local syslog by using SysLogHandler
