@@ -3,7 +3,7 @@
 import argparse
 import gzip
 import logging
-import logging.handlers
+#import logging.handlers
 import os
 import re
 import shutil
@@ -14,6 +14,9 @@ from datetime import datetime
 from pathlib import PurePath
 from google_chat_handler import GoogleChatHandler
 
+# For file sizes
+import bitmath
+# For parsing config file
 import yaml
 
 
@@ -263,12 +266,19 @@ for b_name, b_conf in config['backups'].items():
       # Remove temp file
       db_raw.close()
 
+    # Get the size of the compressed temp file to back up
+    b_size = bitmath.getsize(
+        db_gzip.name,
+        bestprefix=config.get("bitmath_bestprefix", True),
+        system=eval(f"bitmath.{config.get('bitmath_system', 'SI')}")
+        )
 
     # BACKUP #
 
     # Build commands and paths to use
     try:
 
+      # Local backup
       if d['type'] == 'local':
 
         path_dest = PurePath(
@@ -286,6 +296,7 @@ for b_name, b_conf in config['backups'].items():
           ["cp", db_gzip.name, path_dest]
           ]
 
+      # Backup to S3
       elif d['type'] == 's3':
         
         # Full path to the file on S3
@@ -340,7 +351,7 @@ for b_name, b_conf in config['backups'].items():
       EXIT_CODE = 126
       # FIXME: Delete db dump?
     else:
-      logging.info("%s: Backed up database '%s' from host '%s' to %s", b_name, db, s['host'], path_dest)
+      logging.info("%s: Backed up database '%s' from host '%s' to %s (%s)", b_name, db, s['host'], path_dest, b_size)
     finally:
       # Close the temp backup file
       db_gzip.close()

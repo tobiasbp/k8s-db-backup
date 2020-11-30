@@ -16,7 +16,9 @@ Setting the _loglevel_ to _WARNING_(30), would post only warnings  and above to 
 
 Database backups are stored at the following path: `rootdir/backup_name/year/month/database_name+timestamp.sql.gz` on the _destination_.
 
-# Configuration
+The reporting of the size of backed up files, can be configured using *bitmath_prefix* (default: True) & *bitmath_system* (Default: SI). These values are parsed
+directly to the [bitmap](https://bitmath.readthedocs.io/en/latest/module.html#bitmath-getsize) library. Read their documentation.
+
 You can configure as many _backups_ as you want. Each _backup_ needs a _source_ and a _destination_.
 A source can specify more than one database to be backed up.
 
@@ -25,6 +27,8 @@ rootdir: my_database_backups
 rclone_config: /etc/rclone.conf
 timeout: 600
 loglevel: INFO
+bitmath_system: SI
+bitmath_bestprefix: yes
 google_chat:
   url: https://chat.googleapis.com/v1/spaces/XXX/messages?key=XXX
   loglevel: WARNING
@@ -84,7 +88,7 @@ command can be used to upgrade the running release:
 * Check out repository
 * Build image: `docker build -t ddb .`
 * Create a local config file (External to the container) at _/local/backups/backups.yaml_
-* Run container once, and delete it: `docker run --rm ddb -v /local/backups:/etc/backups`
+* Run container once, and delete it: `docker run -v /local/backups:/etc/backups --rm ddb`
 
 ## Locally
 
@@ -132,7 +136,10 @@ running database backups as a cron job in Kubernetes.
 - [x] Exit code should be non 0 if any errors occured during the backup run
 - [x] Log to Google Chat
 - [x] Add helm chart to public repo
-- [ ] Spin out GoggleChatHandler in to seperate PyPI package for reuse
+- [ ] Add info on time spent on backup to log
+- [x] Add info on size of file backed up to log
+- [ ] Somehow expose a metric with time since last successful backup of a database
+- [x] Spin out GoggleChatHandler in to seperate PyPI package for reuse (Someone else had a package. Now using it)
 - [ ] Add config parameter for expected size of backup. Throw error/warning if backup is too small
 - [ ] Add other rclone backends by looking at [rclone config](https://rclone.org/s3/#wasabi)
 - [ ] Setting for max number of backups? Max age?
@@ -141,6 +148,4 @@ running database backups as a cron job in Kubernetes.
 - [ ] Support dumping of all databases without naming them. (Could be default, if no databases mentioned)
 - [ ] Validate configuration values
 - [ ] When using the S3 backend, allow for non changing backup path to take advantage of versioning in S3
-- [ ] Log to remote syslog server by using SysLogHandler
-- [ ] Log to local syslog by using SysLogHandler
-- [ ] Make separate kubernetes secret for the environment variables. Different teams could then have access to the source & destination credentials.
+- [ ] Make separate kubernetes secret to hold the environment variables. Different teams could then have access to the source & destination credentials.

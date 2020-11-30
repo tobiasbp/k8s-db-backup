@@ -2,6 +2,10 @@ rootdir: my_database_backups
 rclone_config: /etc/rclone.conf
 timeout: 600
 loglevel: info
+# Configure reporting of sizes of backed up files
+# https://bitmath.readthedocs.io/en/latest/module.html#bitmath-getsize
+#bitmath_system: SI
+#bitmath_bestprefix: false
 #google_chat:
 #  url: https://chat.googleapis.com/v1/spaces/XXX/messages?key=XXX
 #  loglevel: WARNING
