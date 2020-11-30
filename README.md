@@ -11,10 +11,10 @@ is specified with the flag _--log-file_, in which case messages are also logged 
 The configuration file is _/etc/backups.yaml_ unless a file is specified with the flag _--config_.
 
 Logging to _Google Chat_ is supported. A separate [_loglevel_](https://docs.python.org/3/library/logging.html#logging-levels) can be configured.
-That _loglevel_ must be higher than the general _loglevel_ to have any effect.
+That _loglevel_ must be higher than the general _loglevel_ to have any restrictive effect.
 Setting the _loglevel_ to _WARNING_(30), would post only warnings  and above to _Google Chat_ if the general _loglevel_ is set to _INFO_(20).
 
-Database backups are stored at the following path: `rootdir/backup_name/year/month/database_name+timestamp.sql.gz` on the _destination_.
+Database backups are stored at the following sub path: `rootdir/backup_name/year/month/database_name+timestamp.sql.gz` on the _destination_.
 
 The reporting of the size of backed up files, can be configured using *bitmath_prefix* (default: True) & *bitmath_system* (Default: SI). These values are parsed
 directly to the [bitmap](https://bitmath.readthedocs.io/en/latest/module.html#bitmath-getsize) library. Read their documentation.
@@ -66,7 +66,7 @@ backups:
 
 Environment variables *S3_BUCKET*, *S3_ENDPOINT*, *S3_ACCESS_KEY_ID* and *S3_SECRET_ACCESS_KEY* will be used
 if matching parameters are not set in an S3 destination. This allows for simpler configuration if many
-sources are to be backed up to single S3 destination. 
+sources are to be backed up to single S3 destination. That is, config file has highest precedence.
 
  
 # Running db-backup
@@ -85,10 +85,17 @@ command can be used to upgrade the running release:
 `helm upgrade my-db-backup charts.balle-petersen.org/db-backup -f my_values.yaml`
 
 ## In Docker
+
+### Build umage locally
 * Check out repository
 * Build image: `docker build -t ddb .`
 * Create a local config file (External to the container) at _/local/backups/backups.yaml_
 * Run container once, and delete it: `docker run -v /local/backups:/etc/backups --rm ddb`
+
+### Pull image from Docker Hub
+* Pull image: `docker pull tobiasbp/db-backup`
+* Create a local config file (External to the container) at _/local/backups/backups.yaml_
+* Run container once, and delete it: `docker run -v /local/backups:/etc/backups --rm tobiasbp/db-backup`
 
 ## Locally
 
